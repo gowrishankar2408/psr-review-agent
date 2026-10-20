@@ -1,0 +1,12 @@
+{
+    "servers": {
+        "psr-review-agent": {
+            "type": "stdio",
+            "command": "python",
+            "args": [
+                "${workspaceFolder}/mcp-server/src/main.py"
+            ],
+            "cwd": "${workspaceFolder}/mcp-server"
+        }
+    }
+}
