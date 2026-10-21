@@ -8,7 +8,7 @@ from src.tools.close_case import close_case as close_case_operation
 from src.tools.get_case_details import get_case_details as get_case_details_operation
 from src.tools.get_case_notes import get_case_notes as get_case_notes_operation
 from src.tools.invoke_reasoning_agent import invoke_reasoning_agent as invoke_reasoning_agent_operation
-from src.tools.parse_psr_notes import parse_psr_notes as parse_psr_notes_operation
+from src.tools.parse_psr_notes import NoteParser as parse_psr_notes_operation
 
 mcp = MCPServer("PSR Review Agent")
 print("Starting PSR Review Agent MCP server...")
@@ -29,7 +29,7 @@ def get_case_notes(case_id: str) -> Any:
 @mcp.tool()
 def parse_psr_notes(notes: str) -> dict[str, object]:
     """Normalize PSR notes and split them into paragraphs."""
-    return parse_psr_notes_operation(notes)
+    return parse_psr_notes_operation.extract_notes(notes)
 
 
 @mcp.tool()
