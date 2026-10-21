@@ -1,41 +1,84 @@
-from __future__ import annotations
-
-import json
 import os
-from typing import Any
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from dotenv import load_dotenv
+import urllib3
+import requests
+import time
+import dotenv
+load_dotenv()
+urllib3.disable_warnings()
 
+class CopilotProvider():
 
-class ReasoningAgentService:
-    """HTTP adapter for a separately deployed reasoning agent."""
+    def __init__(self):
+        self.secret = os.getenv("psr_copilot_secret")
 
-    def __init__(self) -> None:
-        self.endpoint = os.environ.get("REASONING_AGENT_API_URL", "")
-        self.api_token = os.environ.get("REASONING_AGENT_API_TOKEN")
-        self.timeout = float(os.environ.get("REASONING_AGENT_API_TIMEOUT", "60"))
+    def generate(self,notes: str,) -> str:
 
-    def invoke(self, case_id: str, notes: str) -> Any:
-        if not self.endpoint:
-            raise RuntimeError("Set REASONING_AGENT_API_URL before invoking the reasoning agent.")
+        headers = {
+            "Authorization":
+                f"Bearer {self.secret}",
+            "Content-Type": "application/json"
+        }
+        conversation = requests.post(os.getenv("copilot_url"),
+            headers=headers,
+            verify=False
+        ).json()
 
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
-        if self.api_token:
-            headers["Authorization"] = f"Bearer {self.api_token}"
-        body = json.dumps({"case_id": case_id, "notes": notes}).encode("utf-8")
-        request = Request(self.endpoint, data=body, headers=headers, method="POST")
+        conversation_id = (
+            conversation["conversationId"]
+            if "conversationId" in conversation
+            else conversation["conversation"]["id"]
+        )
+        print(f"Id {conversation_id}")
+        print("\n\n".join(notes))
 
-        try:
-            with urlopen(request, timeout=self.timeout) as response:
-                result = response.read()
-        except HTTPError as error:
-            raise RuntimeError(f"Reasoning agent returned HTTP {error.code}.") from error
-        except URLError as error:
-            raise RuntimeError("Could not reach the reasoning agent.") from error
+        payload = {
+            "type": "message",
+            "from": {
+                "id": "discovery-agent",
+                "name": "Discovery Agent"
+            },
+            "text": "\n\n".join(notes),
+        }
+        #print(f"url: {os.getenv('copilot_url')}/{conversation_id}/activities")
+        response = requests.post(os.getenv("copilot_url") + f"/{conversation_id}/activities",
+            headers=headers,
+            json=payload,
+            verify=False
+        )
+        '''
+        print("REQUEST BODY:")
+        print(response.request.body)
 
-        if not result:
-            return {}
-        try:
-            return json.loads(result)
-        except json.JSONDecodeError as error:
-            raise RuntimeError("Reasoning agent returned invalid JSON.") from error
+        print("REQUEST HEADERS:")
+        print(response.request.headers)
+
+        print("STATUS:")
+        print(response.status_code)
+
+        print("RESPONSE:")
+        print(response.text)
+        #print(f"Response: {response.json()}")
+        '''
+
+        time.sleep(15)
+
+        activities = requests.get(
+            os.getenv("copilot_url") + f"/{conversation_id}/activities",
+            headers=headers,
+            verify=False
+        ).json()
+        #print(f"Activities: {activities}")
+
+        messages = [
+                activity.get("text")
+                for activity in activities["activities"]
+                if (
+                    activity.get("type") == "message"
+                    and activity.get("text")
+                    and activity.get("from", {}).get("id")
+                    != "discovery-agent"
+                )
+            ]
+
+        return messages[-1]

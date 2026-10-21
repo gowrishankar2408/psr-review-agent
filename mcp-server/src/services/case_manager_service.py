@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from dotenv import load_dotenv
 import json
 import os
 from typing import Any
@@ -7,20 +7,27 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+load_dotenv()
 
 class CaseManagerService:
     """HTTP adapter for the case-management system."""
 
     def __init__(self) -> None:
-        self.base_url = os.environ.get("CASE_MANAGER_API_URL", "").rstrip("/")
-        self.api_token = os.environ.get("CASE_MANAGER_API_TOKEN")
-        self.timeout = float(os.environ.get("CASE_MANAGER_API_TIMEOUT", "15"))
+        print("Initializing CaseManagerService...")
+        self.host_name = os.getenv("hostName")
+        self.entry_point = os.getenv("entryPoint")
+        self.endpoint = os.getenv("endpoint")
+        self.clientID = os.getenv("clientid")
+        self.clientSecret = os.getenv("clientsecret")
+        self.timeout = 10  # seconds
 
     def get_case_details(self, case_id: str) -> Any:
-        return self._request("GET", f"/cases/{quote(case_id, safe='')}")
+        notesURL = self.host_name + self.entry_point + self.endpoint.format(caseNumber=case_id) + 'notes'
+        return self._request("GET", notesURL)
 
     def get_case_notes(self, case_id: str) -> Any:
-        return self._request("GET", f"/cases/{quote(case_id, safe='')}/notes")
+        notesURL = self.host_name + self.entry_point + self.endpoint.format(caseNumber=case_id) + 'notes'
+        return self._request("GET", notesURL)
 
     def close_case(self, case_id: str, resolution_summary: str) -> Any:
         return self._request(
@@ -29,23 +36,17 @@ class CaseManagerService:
             {"resolution_summary": resolution_summary},
         )
 
-    def _request(self, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
-        if not self.base_url:
+    def _request(self, method: str, path: str | None = None) -> Any:
+        if not self.host_name or not self.entry_point or not self.endpoint:
             raise RuntimeError("Set CASE_MANAGER_API_URL before calling case-management tools.")
 
-        headers = {"Accept": "application/json"}
-        if self.api_token:
-            headers["Authorization"] = f"Bearer {self.api_token}"
+        headers={"client_id": self.clientID, "client_secret": self.clientSecret }
 
-        data = None
-        if payload is not None:
-            headers["Content-Type"] = "application/json"
-            data = json.dumps(payload).encode("utf-8")
-
-        request = Request(f"{self.base_url}{path}", data=data, headers=headers, method=method)
+        request = Request(path, headers=headers, method=method)
         try:
             with urlopen(request, timeout=self.timeout) as response:
                 body = response.read()
+                #print(f"Received response from case-management API: {body.decode('utf-8')}")
         except HTTPError as error:
             raise RuntimeError(f"Case-management API returned HTTP {error.code}.") from error
         except URLError as error:
