@@ -22,19 +22,16 @@ class CaseManagerService:
         self.timeout = 10  # seconds
 
     def get_case_details(self, case_id: str) -> Any:
-        notesURL = self.host_name + self.entry_point + self.endpoint.format(caseNumber=case_id) + 'notes'
-        return self._request("GET", notesURL)
+        detailsURL = self.host_name + self.entry_point + self.endpoint.format(caseNumber=case_id)
+        return self._request("GET", detailsURL)
 
     def get_case_notes(self, case_id: str) -> Any:
         notesURL = self.host_name + self.entry_point + self.endpoint.format(caseNumber=case_id) + 'notes'
         return self._request("GET", notesURL)
 
-    def close_case(self, case_id: str, resolution_summary: str) -> Any:
-        return self._request(
-            "POST",
-            f"/cases/{quote(case_id, safe='')}/close",
-            {"resolution_summary": resolution_summary},
-        )
+    def close_case(self, case_id: str) -> Any:
+        closeURL = self.host_name + self.entry_point + self.endpoint.format(caseNumber=case_id) + 'close'
+        return self._request("POST",closeURL,)
 
     def _request(self, method: str, path: str | None = None) -> Any:
         if not self.host_name or not self.entry_point or not self.endpoint:
